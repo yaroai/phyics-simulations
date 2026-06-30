@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-66WCNK879D"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-66WCNK879D');
+    </script>
+
+    <!-- MEDIAPIPE IMPORTS -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <!-- App Logic -->
+    <script src="js/export-manager.js" defer></script>
+    <script src="js/drawing-pad.js" defer></script>
+    <script src="js/auto-demo.js" defer></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+
+    <!-- Primary Meta Tags -->
+    <title>AI Particle Simulator | Professional 3D Swarm Simulator by Casberry India</title>
+    <meta name="title" content="AI Particle Simulator | Professional 3D Swarm Simulator">
+    <meta name="description"
+        content="AI Particle Simulator by Casberry India: A high-performance WebGL simulation platform for creative computational artists. Generate, save, and publish massive 3D particle swarms using neural navigation and custom AI logic.">
+    <meta name="keywords"
+        content="AI, Particle Simulation, WebGL, Three.js, Generative Art, Drone Swarm, Computational Art, Casberry India, Neural Navigation">
+    <meta name="author" content="Casberry India">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://particles.casberry.in/">
+    <meta property="og:title" content="AI Particle Simulator | Professional 3D Swarm Simulator">
+    <meta property="og:description"
+        content="Generate and publish massive 3D particle swarms with custom AI logic. Built for high-performance creative computing.">
+    <meta property="og:image" content="casberry Logo.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://particles.casberry.in/">
+    <meta property="twitter:title" content="AI Particle Simulator | Professional 3D Swarm Simulator">
+    <meta property="twitter:description"
+        content="Generate and publish massive 3D particle swarms with custom AI logic. Built for high-performance creative computing.">
+    <meta property="twitter:image" content="casberry Logo.png">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AI Particle Simulator",
+      "operatingSystem": "Web",
+      "applicationCategory": "MultimediaApplication",
+      "author": {
+        "@type": "Organization",
+        "name": "Casberry India",
+        "url": "https://casberry.in"
+      },
+      "description": "A high-performance WebGL simulation platform for creative computational artists to design and execute 3D particle swarm behaviors.",
+      "featureList": "Neural Navigation, Custom AI Code Editor, 3D Model Import, Community Cloud Publishing",
+      "screenshot": "https://particles.casberry.in/casberry%20Logo.png"
+    }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/drawing-pad.css">
+    <link rel="stylesheet" href="css/export-ui.css">
+</head>
+
+<body>
+
+    <video id="video-proc" loop playsinline style="display:none;" crossorigin="anonymous"></video>
+    <!-- WEBCAM RAW - Fullscreen, Cover, Fixed -->
+    <video id="webcam-raw"
+        style="visibility:hidden; position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; pointer-events:none; z-index:-1;"></video>
+
+    <div id="loader">CALIBRATING PARTICLES...</div>
+
+    <!-- ANNOTATION LAYER -->
+    <div id="annotation-layer"></div>
+
+    <!-- MINI NAVIGATION FOOTER -->
+    <div id="nav-footer">
+        <button class="nav-btn" onclick="prevSim()" title="Previous Simulation">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div id="nav-sim-name" onclick="anchorToSidebar()">SPHERE</div>
+        <button class="nav-btn" id="btn-like-main" onclick="toggleLikeMain()" title="Add to Favorites">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.51 4.05 3 5.5l7 7Z"></path>
+            </svg>
+        </button>
+        <button class="nav-btn" onclick="nextSim()" title="Next Simulation">
+            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+    </div>
+
+    <!-- GESTURE HUD (FULLSCREEN) -->
+    <div id="gesture-layer">
+        <canvas id="webcam-canvas" style="opacity:0.6;"></canvas>
+    </div>
+    <div id="gesture-status">GESTURE OS READY</div>
+
+    <!-- GESTURE GUIDE OVERLAY -->
+    <div id="gesture-guide">
+        <h3 style="color:var(--accent); margin:0 0 10px 0; text-align:center;">
+            <svg viewBox="0 0 24 24" style="width:20px; vertical-align:middle; fill:var(--accent);">
+                <path
+                    d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.86 4.63l-1.91-.36a5.52 5.52 0 0 0-1.28-.15c-.6 0-1.18.13-1.72.35l-.17.07.17-.07c-.47-.2-.96-.31-1.45-.31-.96 0-1.87.38-2.54 1.06L6 12.56c-.36-.36-.86-.56-1.37-.56-.51 0-1.02.2-1.38.56a1.95 1.95 0 0 0 0 2.76l4.24 4.24c.73.73 1.7 1.13 2.73 1.13h7.24c1.1 0 2-.9 2-2v-1.31c0-.58-.25 1.13-.68 1.52z" />
+            </svg>
+            NEURAL NAVIGATION
+        </h3>
+        <div class="guide-row">
+            <div class="guide-icon"><svg viewBox="0 0 24 24" style="width:24px; fill:rgba(255,255,255,0.8);">
+                    <path
+                        d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74z" />
+                </svg></div>
+            <div>
+                <strong style="color:white; display:block;">SIMPLIFIED ROTATION</strong>
+                <span>One Finger: Look Around</span>
+            </div>
+        </div>
+        <div class="guide-row">
+            <div class="guide-icon"><svg viewBox="0 0 24 24" style="width:24px; fill:rgba(255,255,255,0.8);">
+                    <path
+                        d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.86 4.63l-1.91-.36a5.52 5.52 0 0 0-1.28-.15c-.6 0-1.18.13-1.72.35l-.17.07.17-.07c-.47-.2-.96-.31-1.45-.31-.96 0-1.87.38-2.54 1.06L6 12.56c-.36-.36-.86-.56-1.37-.56-.51 0-1.02.2-1.38.56a1.95 1.95 0 0 0 0 2.76l4.24 4.24c.73.73 1.7 1.13 2.73 1.13h7.24c1.1 0 2-.9 2-2v-1.31c0-.58-.25 1.13-.68 1.52z" />
+                </svg></div>
+            <div>
+                <strong style="color:white; display:block;">OPEN PALM: ZOOM</strong>
+                <span>Swipe Left/Right: Zoom In/Out</span>
+            </div>
+        </div>
+        <div class="guide-row">
+            <div class="guide-icon"><svg viewBox="0 0 24 24" style="width:24px; fill:rgba(255,255,255,0.8);">
+                    <path
+                        d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.86 4.63l-1.91-.36a5.52 5.52 0 0 0-1.28-.15c-.6 0-1.18.13-1.72.35l-.17.07.17-.07c-.47-.2-.96-.31-1.45-.31-.96 0-1.87.38-2.54 1.06L6 12.56c-.36-.36-.86-.56-1.37-.56-.51 0-1.02.2-1.38.56a1.95 1.95 0 0 0 0 2.76l4.24 4.24c.73.73 1.7 1.13 2.73 1.13h7.24c1.1 0 2-.9 2-2v-1.31c0-.58-.25 1.13-.68 1.52z" />
+                </svg></div>
+            <div>
+                <strong style="color:white; display:block;">PEACE SIGN: SPEED</strong>
+                <span>Swipe Left/Right: Change Speed</span>
+            </div>
+        </div>
+        <button class="guide-btn" onclick="closeHandGuide()">INITIALIZE NEURAL LINK</button>
+    </div>
+
+    <!-- UI TOOLBAR -->
+    <div id="ui-toolbar">
+        <div id="music-player">
+            <button class="music-btn" onclick="prevTrack()" title="Previous">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                </svg>
+            </button>
+            <button class="music-btn" id="playPauseBtn" onclick="togglePlay()" title="Play/Pause">
+                <svg id="icon-play" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+            </button>
+            <button class="music-btn" onclick="nextTrack()" title="Next">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                </svg>
+            </button>
+        </div>
+        <div id="track-info">TRACK 1</div>
+
+        <!-- AUTO ROTATE TOGGLE -->
+        <div class="tool-btn active" id="btn-auto-rotate" onclick="toggleAutoRotate()" title="Auto Rotation">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
+                <path d="M4 12c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8zm13-1l-4 4-4-4h8z"
+                    style="display:none;" />
+            </svg>
+            <svg viewBox="0 0 24 24" style="position:absolute;">
+                <path
+                    d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+            </svg>
+        </div>
+
+        <!-- NEW GESTURE TOGGLE -->
+        <div class="tool-btn" id="btn-hand-icon" onclick="toggleHandControl()" title="Toggle Gesture OS">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74c1.21-.81 2-2.18 2-3.74C16 5.01 13.99 3 11.5 3S7 5.01 7 7.5c0 1.56.79 2.93 2 3.74zm9.86 4.63l-1.91-.36a5.52 5.52 0 0 0-1.28-.15c-.6 0-1.18.13-1.72.35l-.17.07.17-.07c-.47-.2-.96-.31-1.45-.31-.96 0-1.87.38-2.54 1.06L6 12.56c-.36-.36-.86-.56-1.37-.56-.51 0-1.02.2-1.38.56a1.95 1.95 0 0 0 0 2.76l4.24 4.24c.73.73 1.7 1.13 2.73 1.13h7.24c1.1 0 2-.9 2-2v-1.31c0-.58-.25 1.13-.68 1.52z" />
+            </svg>
+        </div>
+
+        <!-- FULLSCREEN TOGGLE -->
+        <div class="tool-btn" id="btn-fullscreen" onclick="toggleFullscreen()" title="Fullscreen">
+            <svg viewBox="0 0 24 24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+            </svg>
+        </div>
+
+        <!-- CONTROLS TOGGLE -->
+        <div class="tool-btn" id="btn-toggle-controls" onclick="toggleControls()" title="Toggle Controls">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+            </svg>
+        </div>
+
+        <div class="tool-btn" id="btn-toggle-info" onclick="toggleInfo()" title="Toggle Info HUD">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+            </svg>
+        </div>
+        <div class="tool-btn" id="btn-toggle-anno" onclick="toggleAnnotations()" title="Toggle Annotations">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+            </svg>
+        </div>
+
+        <!-- SAMPLE PROMPT BUTTON -->
+        <div class="tool-btn" id="btn-sample-prompt" onclick="openGuide()" title="Sample Prompt">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M7.5 5.6L10 7 7.5 8.4 6 11 4.5 8.4 2 7l2.5-1.4L6 3l1.5 2.6zM19 2l-2.5 1.4L14 2l1.5 2.6L14 7.2l2.5-1.4L19 7.2l-1.5-2.6L19 2zm-5.8 8.6l-2.2-3.8-2.2 3.8L5 12l3.8 2.2 2.2 3.8 2.2-3.8L17 12l-3.8-2.2z" />
+            </svg>
+        </div>
+
+        <!-- EXPORT BUTTON -->
+        <div class="tool-btn" id="btn-export" onclick="openExport()" title="Export Formation">
+            <svg viewBox="0 0 24 24">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- CONTROLS HUD (DYNAMIC) -->
+    <div id="controls-panel">
+        <div class="section-title" style="color:var(--accent); border-bottom:1px solid #333; padding-bottom:5px;">
+            SIMULATION CONTROLS</div>
+        <div id="controls-container"></div>
+    </div>
+
+    <!-- INFO HUD (CONDITIONAL) -->
+    <div id="hud-panel">
+        <div id="hud-title">SYSTEM READY</div>
+        <div id="hud-desc"></div>
+    </div>
+
+    <!-- GUIDE MODAL -->
+    <div id="guide-modal">
+        <button class="modal-close-btn" onclick="closeGuide()" title="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <div class="guide-header">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                    <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                </svg>
+                AI Educational Simulator
+            </h3>
+            <span class="recommended-models">Recommended Models: Gemini and Claude</span>
+        </div>
+        <p style="font-size:13px; color:#aaa; margin-top: 15px;">Copy this prompt to ChatGPT/Claude to generate simulations.</p>
+        <div class="modal-body">
+            <div class="code-block" id="prompt-text">Act as a Creative Computational Artist & High-Performance WebGL Shader
+                Expert.
+    
+                **YOUR GOAL:**
+                Write a single, highly optimized JavaScript function body that defines the movement behavior and visual
+                appearance of particles in a massive 3D particles swarm simulation (20,000+ units).
+    
+                **CONTEXT & API VARIABLES (Read-Only unless specified):**
+                1. `i` (Integer): Index of the current particle (0 to count-1).
+                2. `count` (Integer): Total number of particles.
+                3. `target` (THREE.Vector3): **WRITE-ONLY**. You MUST update this vector object (`target.set(x,y,z)`) to
+                position the particle.
+                4. `color` (THREE.Color): **WRITE-ONLY**. You MUST update this color object (`color.setHSL(...)` or
+                `color.set(...)`) to paint the particle.
+                5. `time` (Float): Global simulation time in seconds. Use this for animation.
+                6. `THREE`: The full Three.js library access.
+    
+                **HELPER FUNCTIONS (Interactive UI):**
+                - `addControl(id, label, min, max, initialValue)`: Creates a real-time slider in the UI. Returns the current
+                float value.
+                *Example:* `const speed = addControl("speed", "Rotation Speed", 0, 5, 1.0);`
+                - `setInfo(title, description)`: Updates the HUD. **Call ONLY when `i === 0`**.
+                - `annotate(id, positionVector, labelText)`: Adds a floating 3D label. **Call ONLY when `i === 0`**.
+                *Example:* `annotate("center", new THREE.Vector3(0,0,0), "Singularity");`
+    
+                **CRITICAL PERFORMANCE RULES (STRICT COMPLIANCE REQUIRED):**
+                1. **ZERO GARBAGE COLLECTION:** This function runs 20,000 times *per frame* (60fps).
+                - **NEVER** use `new THREE.Vector3()` or `new THREE.Color()` inside the loop (except for one-off
+                annotations).
+                - **NEVER** allocate arrays or objects inside the loop.
+                - Reuse the provided `target` and `color` objects.
+                2. **MATH OVER LOGIC:** Avoid heavy branching (`if/else`) inside the loop. Use math functions (`Math.sin`,
+                `Math.cos`, `Math.abs`) for shaping.
+                3. **OUTPUT ONLY:** Do not return any value. Just mutate `target` and `color`.
+                4. **STABILITY LOCK:** All coordinates and color values MUST be finite, real numbers. **NEVER** set values to `NaN`, `Infinity`, or `undefined`. Ensure your mathematical formulas (e.g. divisions) have safety guards against zero.
+                5. **ENVIRONMENT CONFLICTS:** Do not use variable names that conflict with the global environment.
+                **NEVER** redefine or use common global names like `SHADERS`, `THREE`, `Math`, etc. inside your code.
+    
+                **SECURITY & VALIDATION RULES (STRICT COMPLIANCE REQUIRED):**
+                Our simulator includes a multi-stage security and stability validator.
+                1. **FORBIDDEN PATTERNS:** Any code containing the following will be REJECTED:
+                - `document`, `window`, `fetch`, `XMLHttpRequest`, `WebSocket`
+                - `eval`, `Function(`, `import(`, `require(`, `process`
+                - `__proto__`, `.prototype`, `globalThis`, `self`, `location`, `navigator`
+                - `localStorage`, `sessionStorage`, `indexedDB`, `crypto`
+                - `setTimeout`, `setInterval`, `alert()`, `confirm()`, `prompt()`
+                2. **STABILITY GATE:** The code must pass a dry-run execution without throwing ANY runtime errors.
+                3. **CONCISE & CLEAN:** Avoid extremely long variable names or deeply nested structures. Ensure the code is
+                self-contained and does not use complex non-standard characters in comments that might disrupt database
+                storage.
+                4. **NO UNDECLARED VARIABLES:** All variables (like 'phi', 'theta', 'radius', etc.) MUST be explicitly declared
+                with 'let' or 'const' before use. Code triggering "ReferenceError" will fail the stability gate.
+    
+                **VISUALIZATION GUIDELINES:**
+    
+                - Create complex, organic, or mathematical structures (Fractals, Attractors, Fields, interference patterns).
+                - Use `time` to create smooth, flowing animation.
+                - Map `i` (index) to spatial coordinates to create continuous forms.
+                - Use `addControl` to make the visualization interactive (e.g., expanding size, changing chaos levels).
+    
+                **REQUEST:**
+                [INSERT YOUR CREATIVE IDEA HERE - e.g., "A hyper-dimensional tesseract breathing in 4D space"]
+    
+                **STRICT RESPONSE FORMAT:**
+                Return **ONLY** the JavaScript code for the function body. Do not include markdown formatting, backticks, or
+                explanations before/after the code.
+    
+                **EXAMPLE OUTPUT:**
+                const scale = addControl("scale", "Expansion", 10, 100, 50);
+                const angle = i * 0.1 + time;
+                target.set(Math.cos(angle) * scale, Math.sin(angle) * scale, i * 0.05);
+                color.setHSL(i / count, 1.0, 0.5);
+                if (i === 0) setInfo("Spiral Demo", "A basic test.");</div>
+        </div>
+
+        <div class="modal-btn-row">
+            <button onclick="copyPrompt()" style="border-color: var(--accent); color: var(--accent);">Copy Prompt</button>
+            <button onclick="closeGuide()" class="btn-cancel">Close</button>
+        </div>
+    </div>
+
+    <!-- EXPORT MODAL -->
+    <div id="export-modal">
+        <button class="modal-close-btn" onclick="closeExport()" title="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <h3 style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            Export Formation
+        </h3>
+        <p style="font-size:13px; color:#aaa; margin-top: 0; margin-bottom: 20px;">Export your particles swarm logic for production apps.</p>
+
+        <div class="modal-body">
+            <div class="section">
+                <!-- PLATFORMS GRID -->
+                <div style="margin-bottom:15px;">
+                    <div style="font-size:11px; color:#aaa; margin-bottom:8px;">EXPORT AS</div>
+                    <div class="platform-grid">
+                        <button class="platform-btn active" onclick="setExportPlatform('vanilla')" id="btn-platform-vanilla"
+                            title="Vanilla JavaScript">
+                            <svg viewBox="0 0 32 32" fill="currentColor">
+                                <path d="M0 0h32v32h-32zM29.38 24.37c-0.234-1.464-1.188-2.688-4.005-3.833-0.979-0.458-2.073-0.781-2.396-1.521-0.12-0.438-0.141-0.677-0.063-0.938 0.203-0.865 1.219-1.12 2.021-0.88 0.521 0.161 1 0.557 1.302 1.198 1.38-0.901 1.38-0.901 2.339-1.5-0.359-0.557-0.536-0.802-0.781-1.036-0.839-0.943-1.958-1.422-3.776-1.38l-0.943 0.12c-0.901 0.219-1.76 0.698-2.281 1.339-1.516 1.719-1.078 4.719 0.76 5.964 1.818 1.359 4.479 1.656 4.823 2.938 0.318 1.563-1.161 2.063-2.625 1.88-1.078-0.24-1.677-0.781-2.339-1.781l-2.438 1.401c0.276 0.641 0.599 0.917 1.078 1.479 2.318 2.339 8.12 2.219 9.161-1.339 0.036-0.12 0.318-0.943 0.099-2.198zM17.401 14.708h-2.995c0 2.583-0.016 5.151-0.016 7.74 0 1.641 0.083 3.151-0.182 3.615-0.443 0.917-1.573 0.802-2.089 0.641-0.526-0.26-0.797-0.62-1.104-1.141-0.089-0.141-0.151-0.26-0.172-0.26l-2.432 1.5c0.406 0.839 1 1.563 1.766 2.021 1.141 0.682 2.672 0.901 4.276 0.542 1.042-0.302 1.943-0.922 2.411-1.88 0.682-1.24 0.536-2.76 0.531-4.464 0.016-2.74 0-5.479 0-8.24z"/>
+                            </svg>
+                            <span>Vanilla JS</span>
+                        </button>
+                        <button class="platform-btn" onclick="setExportPlatform('react')" id="btn-platform-react"
+                            title="React">
+                            <!-- React Logo (Atom) -->
+                            <svg viewBox="0 0 32 32" fill="currentColor">
+                                <path d="M14.313 22.211c0.55 0.025 1.112 0.043 1.681 0.043 0.575 0 1.143-0.012 1.7-0.043-0.557 0.72-1.107 1.357-1.689 1.964l0.008-0.008c-0.579-0.6-1.135-1.238-1.659-1.902l-0.041-0.054zM8.615 21.411c1.083 0.275 2.404 0.509 3.752 0.653l0.131 0.011c0.825 1.133 1.659 2.13 2.554 3.068l-0.011-0.012c-1.311 1.463-3.080 2.491-5.081 2.86l-0.055 0.008c-0.004 0-0.008 0-0.012 0-0.248 0-0.482-0.061-0.687-0.169l0.008-0.004c-0.832-0.475-1.193-2.292-0.912-4.627 0.067-0.575 0.177-1.18 0.312-1.797zM23.398 21.398c0.118 0.474 0.229 1.078 0.308 1.692l0.009 0.086c0.287 2.334-0.067 4.149-0.892 4.634-0.184 0.102-0.404 0.162-0.638 0.162-0.023 0-0.046-0.001-0.069-0.002l0.003 0c-2.053-0.375-3.821-1.396-5.129-2.841l-0.007-0.008c0.879-0.923 1.707-1.918 2.466-2.965l0.058-0.084c1.476-0.154 2.799-0.392 4.088-0.717l-0.197 0.042zM9.784 17.666c0.25 0.49 0.512 0.978 0.8 1.468q0.431 0.731 0.881 1.428c-0.868-0.127-1.706-0.287-2.507-0.482 0.225-0.787 0.507-1.602 0.825-2.416zM22.212 17.641c0.331 0.821 0.612 1.64 0.845 2.434-0.8 0.196-1.645 0.362-2.519 0.487 0.3-0.469 0.6-0.952 0.881-1.447 0.281-0.487 0.544-0.985 0.795-1.475zM7.619 12.292c0.436 1.478 0.904 2.714 1.449 3.906l-0.075-0.182c-0.466 1.005-0.927 2.234-1.305 3.499l-0.052 0.205c-0.706-0.217-1.274-0.43-1.827-0.669l0.115 0.044c-2.164-0.921-3.564-2.132-3.564-3.092s1.4-2.177 3.564-3.094c0.525-0.225 1.1-0.428 1.694-0.617zM24.358 12.287c0.605 0.187 1.18 0.396 1.718 0.622 2.164 0.925 3.564 2.134 3.564 3.094-0.006 0.96-1.406 2.174-3.57 3.093-0.525 0.225-1.1 0.427-1.693 0.616-0.44-1.483-0.908-2.718-1.451-3.912l0.076 0.188c0.464-1.004 0.926-2.233 1.303-3.498l0.053-0.206zM20.53 11.444c0.869 0.129 1.706 0.287 2.507 0.484-0.225 0.79-0.506 1.602-0.825 2.416-0.25-0.487-0.512-0.978-0.8-1.467-0.281-0.49-0.581-0.967-0.881-1.432zM11.458 11.444c-0.3 0.471-0.6 0.953-0.88 1.45-0.281 0.487-0.544 0.977-0.794 1.467-0.331-0.82-0.612-1.637-0.845-2.433 0.8-0.187 1.643-0.354 2.518-0.482zM16 11.126c0.925 0 1.846 0.042 2.752 0.116q0.761 1.091 1.478 2.324 0.697 1.2 1.272 2.432c-0.385 0.819-0.807 1.637-1.266 2.437-0.475 0.825-0.966 1.61-1.475 2.337-0.91 0.079-1.832 0.122-2.762 0.122-0.925 0-1.846-0.044-2.752-0.116-0.507-0.727-1.002-1.505-1.478-2.324q-0.697-1.2-1.272-2.432c0.379-0.821 0.807-1.641 1.266-2.442 0.475-0.825 0.966-1.607 1.475-2.334 0.91-0.080 1.832-0.122 2.762-0.122zM15.981 7.845c0.58 0.6 1.136 1.237 1.659 1.901l0.040 0.053c-0.55-0.025-1.112-0.042-1.681-0.042-0.575 0-1.143 0.012-1.7 0.042 0.556-0.72 1.106-1.357 1.689-1.964l-0.008 0.008zM9.88 4.033c2.053 0.376 3.82 1.397 5.129 2.841l0.007 0.008c-0.879 0.924-1.707 1.919-2.466 2.968l-0.058 0.084c-1.475 0.153-2.798 0.389-4.086 0.714l0.196-0.042c-0.14-0.612-0.244-1.205-0.317-1.774-0.287-2.334 0.067-4.149 0.892-4.632 0.206-0.097 0.447-0.157 0.701-0.165l0.003-0zM22.090 4.008v0.008c0.013-0 0.028-0.001 0.044-0.001 0.239 0 0.464 0.059 0.662 0.163l-0.008-0.004c0.832 0.477 1.193 2.293 0.912 4.629-0.067 0.575-0.177 1.181-0.312 1.799-1.085-0.278-2.406-0.513-3.754-0.656l-0.128-0.011c-0.826-1.134-1.66-2.131-2.555-3.070l0.012 0.012c1.311-1.46 3.077-2.488 5.074-2.859l0.056-0.009zM22.096 2.646c-2.442 0.371-4.556 1.557-6.1 3.268l-0.008 0.009c-1.555-1.71-3.669-2.888-6.051-3.245l-0.056-0.007c-0.013-0-0.029-0-0.045-0-0.491 0-0.952 0.129-1.351 0.355l0.014-0.007c-1.718 0.991-2.103 4.079-1.216 7.954-3.804 1.175-6.278 3.053-6.278 5.032 0 1.987 2.487 3.87 6.302 5.036-0.88 3.89-0.487 6.983 1.235 7.973 0.378 0.217 0.832 0.344 1.315 0.344 0.022 0 0.044-0 0.065-0.001l-0.003 0c2.442-0.371 4.556-1.558 6.1-3.27l0.008-0.009c1.555 1.711 3.669 2.889 6.051 3.246l0.056 0.007c0.015 0 0.034 0 0.052 0 0.488 0 0.947-0.128 1.344-0.351l-0.014 0.007c1.717-0.99 2.103-4.078 1.216-7.954 3.79-1.165 6.264-3.047 6.264-5.029 0-1.987-2.487-3.87-6.302-5.039 0.88-3.886 0.487-6.982-1.235-7.973-0.382-0.219-0.84-0.348-1.328-0.348-0.013 0-0.026 0-0.039 0l0.002-0zM18.787 16.005c0 1.543-1.251 2.794-2.794 2.794s-2.794-1.251-2.794-2.794c0-1.543 1.251-2.794 2.794-2.794 0.772 0 1.47 0.313 1.976 0.818v0c0.506 0.506 0.818 1.204 0.818 1.976 0 0 0 0 0 0v0z"></path>
+                            </svg>
+                            <span>React</span>
+                        </button>
+                        <button class="platform-btn" onclick="setExportPlatform('three')" id="btn-platform-three"
+                            title="Three.js">
+                            <!-- Three.js Logo (Triangle) -->
+                            <svg viewBox="0 0 226.77 226.77" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="butt" stroke-linejoin="round">
+                                <g transform="translate(8.964 4.2527)" fill-rule="evenodd">
+                                    <path d="m63.02 200.61-43.213-174.94 173.23 49.874z"/>
+                                    <path d="m106.39 50.612 21.591 87.496-86.567-24.945z"/>
+                                    <path d="m84.91 125.03-10.724-43.465 43.008 12.346z"/>
+                                    <path d="m63.458 38.153 10.724 43.465-43.008-12.346z"/>
+                                    <path d="m149.47 62.93 10.724 43.465-43.008-12.346z"/>
+                                    <path d="m84.915 125.06 10.724 43.465-43.008-12.346z"/>
+                                </g>
+                            </svg>
+                            <span>Three.js</span>
+                        </button>
+                        <!-- IMAGE PLATFORM BUTTON -->
+                        <button class="platform-btn" onclick="setExportPlatform('image')" id="btn-platform-image"
+                            title="Export High-Res Image">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span>Wallpapers</span>
+                        </button>
+                        <!-- PLY PLATFORM BUTTON -->
+                        <button class="platform-btn" onclick="setExportPlatform('ply')" id="btn-platform-ply"
+                            title="Export PLY Point Cloud">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <span>PLY 3D</span>
+                        </button>
+                        <!-- GLB PLATFORM BUTTON -->
+                        <button class="platform-btn" onclick="setExportPlatform('glb')" id="btn-platform-glb"
+                            title="Export GLB (Binary)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+                                <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+                                <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                            <span>GLB</span>
+                        </button>
+                        <!-- OBJ PLATFORM BUTTON -->
+                        <button class="platform-btn" onclick="setExportPlatform('obj')" id="btn-platform-obj"
+                            title="Export OBJ (Legacy Mesh)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                <path d="M2 17l10 5 10-5"></path>
+                                <path d="M2 12l10 5 10-5"></path>
+                            </svg>
+                            <span>OBJ</span>
+                        </button>
+                    </div>
+
+                    <!-- PLY MODE SELECTION -->
+                    <div id="ply-options" style="display:none; margin-top:15px; padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size:11px; color:#aaa; margin-bottom:8px; font-weight:bold;">PLY EXPORT MODE</div>
+                        <div style="display:flex; gap:15px;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px;">
+                                <input type="radio" name="plyMode" value="points" checked style="accent-color:var(--accent);">
+                                Point Cloud (Light)
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px;">
+                                <input type="radio" name="plyMode" value="mesh" style="accent-color:var(--accent);">
+                                Solid Mesh (Detail)
+                            </label>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="exportPlatform" value="vanilla">
+                </div>
+
+                <!-- CODE OPTIMIZATION (Visible for code platforms) -->
+                <div id="code-settings-area" class="section" style="padding:0; margin:0;">
+                    <div class="row">
+                        <span>Optimization</span>
+                        <select id="exportOpt">
+                            <option value="max">Max Performance (No Checks)</option>
+                            <option value="safe">Safe Mode (Error Handling)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- IMAGE SETTINGS (Visible for image platform) -->
+                <div id="image-settings-area" class="section" style="display:none; padding:0; margin:0;">
+                    <div style="margin-bottom:15px;">
+                        <div style="font-size:11px; color:#aaa; margin-bottom:8px;">ASPECT RATIO</div>
+                        <div class="aspect-grid">
+                            <button class="aspect-btn active" onclick="setExportAspect('1:1')" id="btn-aspect-1-1" title="1:1 (Square)">
+                                <div class="aspect-icon" style="width:24px; height:24px;"></div>
+                                <span>1:1</span>
+                            </button>
+                            <button class="aspect-btn" onclick="setExportAspect('16:9')" id="btn-aspect-16-9" title="16:9 (Widescreen)">
+                                <div class="aspect-icon" style="width:32px; height:18px;"></div>
+                                <span>16:9</span>
+                            </button>
+                            <button class="aspect-btn" onclick="setExportAspect('9:16')" id="btn-aspect-9-16" title="9:16 (Portrait)">
+                                <div class="aspect-icon" style="width:18px; height:32px;"></div>
+                                <span>9:16</span>
+                            </button>
+                            <button class="aspect-btn" onclick="setExportAspect('4:3')" id="btn-aspect-4-3" title="4:3 (Classic)">
+                                <div class="aspect-icon" style="width:28px; height:21px;"></div>
+                                <span>4:3</span>
+                            </button>
+                            <button class="aspect-btn" onclick="setExportAspect('3:4')" id="btn-aspect-3-4" title="3:4 (Tall)">
+                                <div class="aspect-icon" style="width:21px; height:28px;"></div>
+                                <span>3:4</span>
+                            </button>
+                            <button class="aspect-btn" onclick="setExportAspect('custom')" id="btn-aspect-custom" title="Custom Dimensions">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px; height:24px;">
+                                    <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/>
+                                </svg>
+                                <span>Custom</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="exportAspect" value="1:1">
+                    </div>
+
+                    <!-- Custom Resolution Inputs -->
+                    <div id="custom-res-area" style="display:none; margin-bottom:15px;">
+                        <div style="font-size:11px; color:#aaa; margin-bottom:8px;">CUSTOM DIMENSIONS (PX)</div>
+                        <div class="custom-res-grid">
+                            <div class="row" style="margin:0; background:rgba(255,255,255,0.03); padding:5px 10px; border-radius:4px;">
+                                <span style="font-size:10px;">Width</span>
+                                <input type="number" id="customWidth" value="1920" style="width:70px; background:none; border:none; color:white; font-family: monospace; text-align:right;">
+                            </div>
+                            <div class="row" style="margin:0; background:rgba(255,255,255,0.03); padding:5px 10px; border-radius:4px;">
+                                <span style="font-size:10px;">Height</span>
+                                <input type="number" id="customHeight" value="1080" style="width:70px; background:none; border:none; color:white; font-family: monospace; text-align:right;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" id="row-resolution">
+                        <span>Resolution</span>
+                        <select id="exportResolution">
+                            <option value="1080">1080p (FHD)</option>
+                            <option value="1440">2K (QHD)</option>
+                            <option value="2160">4K (UHD)</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <span>Format</span>
+                        <select id="exportFormat">
+                            <option value="image/png">PNG</option>
+                            <option value="image/jpeg">JPEG</option>
+                            <option value="image/webp">WEBP</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="code-block" id="export-preview" style="height:150px; overflow:hidden; opacity:0.5;">
+                // Code preview will appear here...
+            </div>
+        </div>
+
+
+        <div class="modal-btn-row">
+            <button onclick="exportCode()" id="btn-primary-export" style="border-color: var(--accent); color: var(--accent);">Download Code</button>
+            <button onclick="copyExport()" id="btn-copy-export">Copy</button>
+            <button onclick="closeExport()" class="btn-cancel">Cancel</button>
+        </div>
+    </div>
+
+    <!-- EXPORT MODAL REMOVED (OLD Separate one) -->
+
+    <!-- ERROR MODAL -->
+    <div id="error-modal"
+        style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0,0,0,0.95); border:1px solid #f44; padding:25px; border-radius:12px; z-index:10000; width:90%; max-width:400px; box-shadow:0 0 30px rgba(255, 68, 68, 0.2); backdrop-filter:blur(10px);">
+        <h3 style="color:#f44; margin-top:0; display:flex; align-items:center; gap:10px;">
+            <svg viewBox="0 0 24 24" style="width:24px; fill:currentColor;">
+                <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            System Error
+        </h3>
+        <p id="error-message"
+            style="color:#eee; font-size:14px; line-height:1.6; margin:15px 0; word-break:break-word;"></p>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button onclick="copyError()" id="btn-copy-error"
+                style="background:transparent; border:1px solid #444; color:#aaa; padding:8px 15px; border-radius:4px; font-size:12px; cursor:pointer;"
+                onmouseover="this.style.borderColor='#666';this.style.color='#fff'"
+                onmouseout="this.style.borderColor='#444';this.style.color='#aaa'">Copy Details</button>
+            <button onclick="document.getElementById('error-modal').style.display='none'"
+                style="background:#f44; border:none; color:white; padding:8px 20px; border-radius:4px; font-size:12px; cursor:pointer; font-weight:bold;">Close</button>
+        </div>
+    </div>
+
+
+    <!-- DRAW OVERLAY (PRO REDESIGN) -->
+    <div id="draw-overlay" style="display:none;" class="dp-overlay">
+        <div id="draw-header">
+            <span style="color:var(--accent); font-weight:bold; font-size:16px;">
+                <svg viewBox="0 0 24 24"
+                    style="width:16px; fill:currentColor; vertical-align:middle; margin-right:5px;">
+                    <path
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                </svg>
+                DRAWING PAD PRO
+            </span>
+            <button onclick="closeDraw()"
+                style="background:#222; border:1px solid #444; padding:5px 15px; color:#aaa; cursor:pointer;"
+                onmouseover="this.style.background='#333';this.style.color='#fff'"
+                onmouseout="this.style.background='#222';this.style.color='#aaa'">CLOSE</button>
+        </div>
+
+        <div style="flex:1 1 auto; display:flex; flex-direction:column; overflow:hidden;">
+            <!-- TOOLBAR TOP -->
+            <div class="dp-toolbar">
+                <div class="dp-color-picker">
+                    <span style="font-size:11px; color:#aaa; font-weight:bold; letter-spacing:1px;">COLOR</span>
+                    <input type="color" id="drawColor" value="#00ff88"
+                        style="border:none; width:20px; height:20px; padding:0; background:none; cursor:pointer;"
+                        onchange="updateDrawColor()">
+                </div>
+
+                <div class="dp-divider"></div>
+
+                <button onclick="setDrawMode('pen')" id="btn-draw-pen" class="dp-btn active" title="Pen Brush">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                    </svg>
+                </button>
+                <button onclick="setDrawMode('eraser')" id="btn-draw-eraser" class="dp-btn" title="Eraser">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.77-.78 2.04 0 2.83L5.03 20h7.14l8.86-8.86c.78-.78.78-2.05 0-2.83L16.56 3.59c-.39-.39-.9-.59-1.42-.59zm-4.32 14H5.92l4.9-4.9 4.9 4.9h-4.9z" />
+                    </svg>
+                </button>
+
+                <div class="dp-divider"></div>
+
+                <button onclick="undoDraw()" id="btn-draw-undo" class="dp-btn" title="Undo (Ctrl+Z)">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" />
+                    </svg>
+                </button>
+                <button onclick="redoDraw()" id="btn-draw-redo" class="dp-btn" title="Redo (Ctrl+Y)">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
+                    </svg>
+                </button>
+
+                <div class="dp-divider"></div>
+
+                <button onclick="toggleDrawSymmetry()" id="btn-draw-sym" class="dp-btn sym"
+                    title="Mirror Symmetry Axis">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M12 2v20M8 10l-4 4 4 4M16 10l4 4-4 4" />
+                    </svg>
+                </button>
+                <button onclick="toggleDrawPulsar()" id="btn-draw-pulsar" class="dp-btn pulsar"
+                    title="Pulsing Line Width">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+                        <path d="M2 12h4l3-7 5 14 3-7h5" />
+                    </svg>
+                </button>
+
+                <div class="dp-divider"></div>
+
+                <button onclick="clearDraw()" class="dp-btn danger" title="Clear Canvas">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- CANVAS CONTAINER WITH GUIDES -->
+            <div class="dp-canvas-container">
+                <div class="dp-canvas-wrapper">
+                    <!-- CSS Graph Paper Guide -->
+                    <div class="dp-grid"></div>
+                    <!-- Symmetry Axis Guide (Hidden by default) -->
+                    <div id="symmetry-guide"></div>
+                    <!-- The Master Canvas -->
+                    <canvas id="draw-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- ENHANCED CONTROLS BOTTOM -->
+            <div id="draw-footer">
+
+                <div class="dp-control-group">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="drawFill" onchange="updateDrawLive()">
+                        <span class="label">SOLID FILL</span>
+                    </label>
+                </div>
+
+                <div class="dp-control-group">
+                    <span class="label">DEPTH</span>
+                    <input type="range" id="drawDepth" min="0" max="100" value="0"
+                        oninput="document.getElementById('drawDepthVal').innerText=this.value; updateDrawLive();">
+                    <span id="drawDepthVal" class="val">0</span>
+                </div>
+
+                <!-- Transform Controls -->
+                <div class="dp-control-group">
+                    <span class="label">SCALE</span>
+                    <input type="range" id="drawScale" min="0.1" max="3" step="0.1" value="1"
+                        oninput="document.getElementById('drawScaleVal').innerText=this.value+'x'; updateDrawLive();">
+                    <span id="drawScaleVal" class="val">1x</span>
+                </div>
+
+                <div class="dp-control-group">
+                    <span class="label">ROTATE</span>
+                    <input type="range" id="drawRotate" min="-180" max="180" value="0"
+                        oninput="document.getElementById('drawRotVal').innerText=this.value+'°'; updateDrawLive();">
+                    <span id="drawRotVal" class="val">0°</span>
+                </div>
+
+                <button id="btn-build-3d" onclick="processDraw()" class="dp-build-btn">
+                    <svg viewBox="0 0 24 24" style="width:20px; fill:currentColor;">
+                        <path
+                            d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+                    </svg>
+                    LIVE UPDATE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="sidebar" class="collapsed">
+        <div class="header">
+            <div class="header-brand">
+                <h1>AI Particle Simulator</h1>
+                <div class="app-version">Version 1.2</div>
+            </div>
+            <div class="header-controls">
+                <button onclick="openGuide()" class="guide-btn-mini" title="AI Guide">? AI Guide</button>
+                <button id="toggle-sidebar" title="Toggle Menu">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"
+                            style="fill:none;stroke:white;stroke-width:2">
+                        </rect>
+                        <line x1="9" y1="3" x2="9" y2="21" style="stroke:white;stroke-width:2"></line>
+                        <path d="M17 16l-4-4 4-4" style="stroke:white;stroke-width:2"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="scroll-area">
+            <!-- 1. SYSTEM -->
+            <div class="section">
+                <div class="section-title">System Core</div>
+                <div class="row"><span>Particle Count</span><input type="range" id="densitySlider" min="5000"
+                        max="50000" step="5000" value="20000"></div>
+                <div style="text-align: right; font-size: 10px; color: var(--accent); margin-top: -8px; margin-bottom: 10px;"
+                    id="densityVal">20,000 UNITS</div>
+                <div class="row"><span>Sim Speed</span><input type="range" id="speedSlider" min="0.1" max="2.0"
+                        step="0.1" value="1.0"></div>
+                <div class="row"><span>Glow Intensity</span><input type="range" id="bloomSlider" min="0.5" max="3"
+                        step="0.1" value="1.8"></div>
+                <!-- VISUAL STYLE SELECTOR -->
+                <!-- VISUAL STYLE GRID -->
+                <div class="row" style="margin-bottom:5px;">Visual Style</div>
+                <div class="style-grid">
+                    <button class="style-btn active" onclick="updateRenderStyle('spark')" title="Spark">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2L9 9 2 12 9 15 12 22 15 15 22 12 15 9z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('plasma')" title="Plasma">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="4" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('ink')" title="Ink">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2C12 2 4 8 4 14c0 4.4 3.6 8 8 8s8-3.6 8-8c0-6-8-12-8-12z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('paint')" title="Paint">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 22C6.49 22 2 17.51 2 12S6.49 2 12 2s10 4.49 10 10-4.49 10-10 10zm-3-5c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-2h2v-2h-3v-2H9v7z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('steel')" title="Steel">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('glass')" title="Glass">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2L4 22h16L12 2zm0 3.5l5.5 13.5h-11L12 5.5z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('vector')" title="Vector">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" />
+                        </svg>
+                    </button>
+                    <button class="style-btn" onclick="updateRenderStyle('cyber')" title="Cyber">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M4 4h16v16H4V4zm2 2v12h12V6H6z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. TEXT ENGINE -->
+            <div class="section">
+                <div class="section-title">Smart Text Engine</div>
+                <div class="text-input-wrapper">
+                    <textarea id="textInput" class="input-area" placeholder="Type text here...">PHYSICS</textarea>
+                    <div class="row"><span>Font Size</span><input type="range" id="textSizeSlider" min="50" max="400"
+                            step="10" value="150"></div>
+                    <div class="row"><select id="fontSelect">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times</option>
+                            <option value="Courier New">Code</option>
+                            <option value="Impact">Impact</option>
+                        </select></div>
+                    <div class="row"><select id="animSelect">
+                            <option value="static">Static</option>
+                            <option value="scroll">Scroll</option>
+                            <option value="wave">Wave</option>
+                            <option value="pulse">Pulse</option>
+                            <option value="rain">Matrix</option>
+                        </select></div>
+                    <button onclick="processText()"
+                        style="width:100%; border-color: var(--accent); color: var(--accent);">VISUALIZE TEXT</button>
+                </div>
+            </div>
+
+            <!-- 3. MEDIA -->
+            <div class="section">
+                <div class="section-title">Media & 3D Imports</div>
+                <div class="file-box">
+                    <label
+                        style="font-size: 11px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; width: 100%; align-items:center;"
+                        for="imgInput">
+                        <span><svg viewBox="0 0 24 24"
+                                style="width:12px; vertical-align:middle; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+                            </svg> Upload Image</span>
+                    </label>
+                    <span id="imgName"
+                        style="display:block; font-size:10px; color:var(--accent); margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                    <input type="file" id="imgInput" accept="image/*" style="display:none;">
+                    <button onclick="clearMedia('image')"
+                        style="position:absolute; right:5px; top:5px; border:none; background:none; color:#f44; padding:0; font-size:14px;">×</button>
+                </div>
+                <div class="file-box">
+                    <label
+                        style="font-size: 11px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; width: 100%; align-items:center;"
+                        for="vidInput">
+                        <span><svg viewBox="0 0 24 24"
+                                style="width:12px; vertical-align:middle; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+                            </svg> Upload Video</span>
+                    </label>
+                    <span id="vidName"
+                        style="display:block; font-size:10px; color:var(--accent); margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                    <input type="file" id="vidInput" accept="video/*" style="display:none;">
+                    <button onclick="clearMedia('video')"
+                        style="position:absolute; right:5px; top:5px; border:none; background:none; color:#f44; padding:0; font-size:14px;">×</button>
+                    <div class="row" style="margin-top:10px; border-top:1px solid #333; padding-top:8px;">
+                        <span>Volume</span><input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.5">
+                    </div>
+                </div>
+                <!-- 3D MODEL IMPORT -->
+                <div class="file-box">
+                    <label
+                        style="font-size: 11px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; width: 100%; align-items:center;"
+                        for="modelInput">
+                        <span><svg viewBox="0 0 24 24"
+                                style="width:12px; vertical-align:middle; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
+                            </svg> Upload 3D Model</span>
+                    </label>
+                    <span id="modelName"
+                        style="display:block; font-size:10px; color:var(--accent); margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">(GLB,
+                        OBJ, PDB, PLY)</span>
+                    <input type="file" id="modelInput" accept=".glb,.gltf,.obj,.pdb,.ply" style="display:none;">
+                    <button onclick="clearMedia('model')"
+                        style="position:absolute; right:5px; top:5px; border:none; background:none; color:#f44; padding:0; font-size:14px;">×</button>
+                </div>
+            </div>
+
+            <!-- 4. BLUEPRINT & CAD (NEW) -->
+            <div class="section">
+                <div class="section-title">Blueprint & CAD</div>
+                <div class="file-box">
+                    <label
+                        style="font-size: 11px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; width: 100%; align-items:center;"
+                        for="blueprintInput">
+                        <span><svg viewBox="0 0 24 24"
+                                style="width:12px; vertical-align:middle; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5zm4-6h6v2H9zm-2-4h10v2H7z" />
+                            </svg> Upload Blueprint</span>
+                    </label>
+                    <span id="blueprintName"
+                        style="display:block; font-size:10px; color:var(--accent); margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                    <input type="file" id="blueprintInput" accept="image/*" style="display:none;">
+                    <button onclick="clearMedia('blueprint')"
+                        style="position:absolute; right:5px; top:5px; border:none; background:none; color:#f44; padding:0; font-size:14px;">×</button>
+                </div>
+
+                <div style="margin-top:10px;">
+                    <div class="row"><span>Edge Threshold</span><input type="range" id="bpThreshold" min="0" max="255"
+                            step="1" value="100" oninput="updateBlueprintParams()"></div>
+                    <div class="row"><span>Scale</span><input type="range" id="bpScale" min="0.1" max="3.0" step="0.1"
+                            value="1.0" oninput="updateBlueprintParams()"></div>
+                    <div class="row" style="justify-content: space-between;">
+                        <span>Fill Geometry</span>
+                        <input type="checkbox" id="bpFill" onchange="updateBlueprintParams()">
+                    </div>
+                </div>
+
+                <!-- 4. LOCAL FORMATIONS -->
+                <div class="section">
+                    <div class="section-title">Local Formations</div>
+                    <div class="btn-grid" style="margin-bottom: 15px;">
+                        <button class="shape-btn" data-sim-id="sphere" onclick="setShape('sphere')">Sphere</button>
+                        <button class="shape-btn" data-sim-id="cube" onclick="setShape('cube')">Cube</button>
+                        <button class="shape-btn" data-sim-id="helix" onclick="setShape('helix')">Helix</button>
+                        <button class="shape-btn" data-sim-id="torus" onclick="setShape('torus')">Donut</button>
+                    </div>
+                    <div class="section-title">Custom Editor</div>
+                    <input type="text" id="customName" placeholder="SHAPE NAME"
+                        style="width:100%; background:#111; border:1px solid #333; color:white; padding:8px; margin-bottom:5px; border-radius:4px; box-sizing:border-box; text-transform: uppercase;">
+                    <textarea id="customCode"
+                        style="width:100%; height:80px; background:#111; color:#0f0; border:1px solid #333; font-family:monospace; font-size:10px; padding:5px; box-sizing:border-box; margin-bottom:5px;"
+                        placeholder="// Paste AI code here..."></textarea>
+                    <input type="text" id="publisherName" placeholder="YOUR NAME (REQUIRED TO PUBLISH)"
+                        style="width:100%; background:#111; border:1px solid #333; color:white; padding:8px; margin-bottom:5px; border-radius:4px; box-sizing:border-box;"
+                        oninput="validatePublish()">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; padding:5px; background:rgba(255,170,0,0.1); border-radius:4px; border:1px dashed rgba(255,170,0,0.3);">
+                        <input type="checkbox" id="confirmSharing" onchange="validatePublish()" style="accent-color:#ffaa00; width:16px; height:16px; cursor:pointer;">
+                        <label for="confirmSharing" style="font-size:11px; color:#ffaa00; font-weight:bold; cursor:pointer;">IS THIS WORTH SHARING?</label>
+                    </div>
+                    <div class="btn-grid">
+                        <button onclick="addCustomFormation()">+ Save Local</button>
+                        <button id="btn-publish" onclick="publishFormation()"
+                            style="border-color:#555; color:#555; cursor:not-allowed;" disabled>
+                            <svg viewBox="0 0 24 24" style="width:14px; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" />
+                            </svg> Publish
+                        </button>
+                    </div>
+                    <div id="custom-list" style="margin-top:15px;"></div>
+                </div>
+
+                <!-- 5. COMMUNITY CLOUD -->
+                <div class="section">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="section-title">Community Cloud (Online)</div>
+                        <div id="favorites-tab" onclick="toggleFavoritesFilter()" title="Show Favorites" 
+                            style="display:flex; align-items:center; gap:5px; padding:4px 8px; background:rgba(255,10,10,0.05); border:1px solid rgba(255,10,10,0.1); border-radius:4px; font-size:10px; cursor:pointer; color:#ff4d4d; transition: all 0.3s;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px; height:12px;">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.84-8.84 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                            </svg>
+                            <span id="fav-count">0</span>
+                        </div>
+                    </div>
+                    <input type="text" id="communitySearch" placeholder="SEARCH CLOUD SHAPES..."
+                        style="width:100%; background:#111; border:1px solid #333; color:white; padding:8px; margin-bottom:10px; border-radius:4px; box-sizing:border-box; text-transform: uppercase;"
+                        onfocus="autoFetchAllCommunity()" oninput="filterCommunity()">
+                    <div id="community-list" style="min-height:50px;">
+                        <button style="width:100%;" onclick="loadCommunity()">
+                            <svg viewBox="0 0 24 24" style="width:14px; fill:currentColor; margin-right:4px;">
+                                <path
+                                    d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
+                            </svg> Load Cloud Shapes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 6. DRAW -->
+                <div class="section">
+                    <div class="section-title">Manual Control</div>
+                    <button onclick="openDraw()" style="width:100%; color: #ff0055; border-color: #ff0055;">
+                        <svg viewBox="0 0 24 24" style="width:14px; fill:currentColor; margin-right:4px;">
+                            <path
+                                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                        </svg> Open Drawing Pad
+                    </button>
+                </div>
+                <!-- SIDEBAR FOOTER -->
+                <div class="sidebar-footer">
+                    <div class="footer-copy">
+                        MADE WITH <span class="heart-icon">❤</span> BY <a href="https://casberry.in"
+                            target="_blank">CASBERRY</a>
+                    </div>
+                    <div class="footer-socials">
+                        <a href="https://x.com/Eswarprasaath_" target="_blank" class="social-link" title="Follow on X">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z">
+                                </path>
+                            </svg>
+                        </a>
+                        <a href="https://github.com/CasberryIndia" target="_blank" class="social-link"
+                            title="Check GitHub">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12">
+                                </path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
+            <!-- THREE.JS & FIREBASE IMPORT MAP -->
+            <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+            "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
+            "firebase/app-check": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js"
+        }
+    }
+    </script>
+
+            <script type="module" src="main.js"></script>
+</body>
+
+</html>

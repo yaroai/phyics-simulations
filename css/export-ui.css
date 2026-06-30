@@ -1,0 +1,125 @@
+/* Platform Buttons Grid */
+.platform-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.platform-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 80px;
+    gap: 8px;
+}
+
+.platform-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #666;
+}
+
+.platform-btn.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.platform-btn svg {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 2px;
+    overflow: visible;
+}
+
+.platform-btn span {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+/* Aspect Ratio Buttons Grid */
+.aspect-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.aspect-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    height: 70px;
+    gap: 8px;
+}
+
+.aspect-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #666;
+}
+
+.aspect-btn.active {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.aspect-icon {
+    border: 2px solid currentColor;
+    border-radius: 2px;
+    transition: all 0.2s;
+}
+
+.aspect-btn span {
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 600px) {
+    #export-modal .platform-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    #export-modal .platform-btn {
+        height: 70px;
+        padding: 10px;
+    }
+
+    #export-modal .aspect-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    #export-modal .aspect-btn {
+        height: 60px;
+    }
+}
+
+.custom-res-grid {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px;
+}
+
+@media (max-width: 600px) {
+    #export-modal .custom-res-grid {
+        grid-template-columns: 1fr;
+    }
+}
