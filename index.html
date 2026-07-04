@@ -27,6 +27,15 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1280, user-scalable=yes">
+    <script>
+        // On phones/tablets, render the full desktop UI inside a fixed
+        // 1280x720 "monitor" band (letterboxed with black bars), instead of
+        // stretching it to fill the tall portrait screen. Set the flag before
+        // paint to avoid a layout flash.
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            document.documentElement.classList.add('desktop-frame');
+        }
+    </script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
 
@@ -81,6 +90,7 @@
 </head>
 
 <body>
+<div id="stage">
 
     <video id="video-proc" loop playsinline style="display:none;" crossorigin="anonymous"></video>
     <!-- WEBCAM RAW - Fullscreen, Cover, Fixed -->
@@ -1028,6 +1038,8 @@
 
 
 
+
+</div><!-- #stage -->
 
             <!-- THREE.JS & FIREBASE IMPORT MAP -->
             <script type="importmap">

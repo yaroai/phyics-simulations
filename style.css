@@ -72,6 +72,35 @@ canvas {
     outline: none;
 }
 
+/* --- APP STAGE ---
+   On desktop this is a transparent full-viewport wrapper (no visual change).
+   On phones/tablets (html.desktop-frame) it becomes a fixed 1280x720 "monitor"
+   band: the browser scales the 1280-wide page down to fit the screen width, and
+   we center that band vertically with black bars above/below. The transform on
+   the stage also makes it the containing block for the fixed-position UI panels,
+   so the whole desktop UI stays inside the band. */
+#stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+html.desktop-frame,
+html.desktop-frame body {
+    background: #000;
+}
+
+html.desktop-frame #stage {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 1280px;
+    height: 720px;
+    transform: translateY(-50%);
+    overflow: hidden;
+    box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+}
+
 /* --- UI SIDEBAR --- */
 #sidebar {
     position: absolute;

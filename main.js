@@ -353,8 +353,8 @@ const cyberGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
 const sphereGeo = new THREE.SphereGeometry(0.3, 16, 16);
 
 function resizeWebcamCanvas() {
-    webcamCanvas.width = window.innerWidth;
-    webcamCanvas.height = window.innerHeight;
+    webcamCanvas.width = viewW();
+    webcamCanvas.height = viewH();
 }
 window.addEventListener('resize', () => { if (STATE.handControlEnabled) resizeWebcamCanvas(); });
 
@@ -688,14 +688,24 @@ window.annotate = (id, vector, label) => {
     }
 };
 
+// --- MOBILE "DESKTOP MONITOR" FRAME ---
+// On phones/tablets the whole app lives inside a fixed 1280x720 letterboxed
+// band (see #stage in style.css). The WebGL renderer must draw at those
+// dimensions, NOT the tall portrait viewport, so the aspect ratio matches the
+// visible monitor band. On desktop these just return the real window size.
+const IS_MOBILE_FRAME = document.documentElement.classList.contains('desktop-frame');
+const FRAME_W = 1280, FRAME_H = 720;
+const viewW = () => IS_MOBILE_FRAME ? FRAME_W : window.innerWidth;
+const viewH = () => IS_MOBILE_FRAME ? FRAME_H : window.innerHeight;
+
 // --- THREE JS ---
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(60, viewW() / viewH(), 0.1, 2000);
 camera.position.set(0, 0, 100);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+renderer.setSize(viewW(), viewH());
+(document.getElementById('stage') || document.body).appendChild(renderer.domElement);
 
 // WORLD GROUP (For Object-Centric Rotation)
 const worldGroup = new THREE.Group();
@@ -728,7 +738,7 @@ if (STATE.showAnnotations) document.getElementById('btn-toggle-anno').classList.
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(viewW(), viewH()), 1.5, 0.4, 0.85);
 bloomPass.strength = 1.8; bloomPass.radius = 0.4; bloomPass.threshold = 0;
 composer.addPass(bloomPass);
 
@@ -1918,21 +1928,7 @@ window.loadCommunity = async (append = false) => {
             loadBtn.setAttribute('data-sim-id', doc.id);
             loadBtn.onclick = () => runCustom(d.code, d.name, doc.id);
 
-            const copyBtn = document.createElement('button'); copyBtn.className = 'icon-btn copy-btn'; copyBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`; copyBtn.onclick = () => copyCustom(d.name, d.code);
-            copyBtn.title = "Copy Code";
-
-            const likeBtn = document.createElement('button');
-            likeBtn.className = 'icon-btn like-btn';
-            const isFav = STATE.favorites.includes(doc.id);
-            if (isFav) likeBtn.classList.add('liked');
-            likeBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.51 4.05 3 5.5l7 7Z"></path></svg>`;
-            likeBtn.onclick = (e) => { e.stopPropagation(); toggleLike(doc.id, likeBtn); };
-            likeBtn.title = "Add to Favorites";
-
-            const shareBtn = document.createElement('button'); shareBtn.className = 'icon-btn share-btn'; shareBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>`; shareBtn.onclick = (e) => shareCustom(d.name, e);
-            shareBtn.title = "Share Link";
-
-            div.appendChild(loadBtn); div.appendChild(copyBtn); div.appendChild(likeBtn); div.appendChild(shareBtn); list.appendChild(div);
+            div.appendChild(loadBtn); list.appendChild(div);
         });
         updateFavCounter();
         if (window.filterCommunity) window.filterCommunity();
@@ -2109,9 +2105,8 @@ function renderCustomButtons() {
         const btn = document.createElement('button'); btn.className = 'shape-btn'; btn.innerText = k; 
         btn.setAttribute('data-sim-id', 'local-' + k);
         btn.onclick = () => setShape(k);
-        const copyBtn = document.createElement('button'); copyBtn.className = 'icon-btn copy-btn'; copyBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`; copyBtn.onclick = () => copyCustom(k);
         const delBtn = document.createElement('button'); delBtn.className = 'icon-btn del-btn'; delBtn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24" style="stroke:#ff4444;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`; delBtn.onclick = () => deleteCustom(k);
-        div.appendChild(btn); div.appendChild(copyBtn); div.appendChild(delBtn); list.appendChild(div);
+        div.appendChild(btn); div.appendChild(delBtn); list.appendChild(div);
     });
 }
 window.deleteCustom = (k) => { delete STATE.customShapes[k]; saveCustom(); renderCustomButtons(); };
@@ -2351,8 +2346,8 @@ function animate() {
     if (STATE.showAnnotations) {
         annotations.forEach((anno) => {
             tempV.copy(anno.pos); tempV.project(camera);
-            const x = (tempV.x * .5 + .5) * window.innerWidth; const y = (-(tempV.y * .5) + .5) * window.innerHeight;
-            if (tempV.z < 1 && x > 0 && x < window.innerWidth && y > 0 && y < window.innerHeight) {
+            const x = (tempV.x * .5 + .5) * viewW(); const y = (-(tempV.y * .5) + .5) * viewH();
+            if (tempV.z < 1 && x > 0 && x < viewW() && y > 0 && y < viewH()) {
                 anno.element.style.display = 'flex'; anno.element.style.transform = `translate(${x}px, ${y}px)`;
             } else { anno.element.style.display = 'none'; }
         });
@@ -2360,13 +2355,13 @@ function animate() {
     controls.update(); composer.render();
 }
 
-window.addEventListener('resize', () => { 
-    camera.aspect = window.innerWidth / window.innerHeight; 
-    camera.updateProjectionMatrix(); 
-    renderer.setSize(window.innerWidth, window.innerHeight); 
-    composer.setSize(window.innerWidth, window.innerHeight); 
+window.addEventListener('resize', () => {
+    camera.aspect = viewW() / viewH();
+    camera.updateProjectionMatrix();
+    renderer.setSize(viewW(), viewH());
+    composer.setSize(viewW(), viewH());
     if (bloomPass) {
-        bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+        bloomPass.resolution.set(viewW(), viewH());
     }
 });
 
