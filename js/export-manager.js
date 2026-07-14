@@ -706,6 +706,8 @@ window.exportCode = () => {
 // document.getElementById('exportPlatform') ? document.getElementById('exportPlatform').addEventListener('change', window.updatePreview) : null;
 
 window.setExportPlatform = (platform) => {
+    if (activeRecording) return; // don't swap formats mid-recording
+
     document.getElementById('exportPlatform').value = platform;
 
     // UI Update
@@ -715,43 +717,51 @@ window.setExportPlatform = (platform) => {
     // Section Visibility
     const codeArea = document.getElementById('code-settings-area');
     const imageArea = document.getElementById('image-settings-area');
+    const videoArea = document.getElementById('video-settings-area');
+    const formatRow = document.getElementById('row-format');
     const previewArea = document.getElementById('export-preview');
     const primaryBtn = document.getElementById('btn-primary-export');
     const copyBtn = document.getElementById('btn-copy-export');
 
-    if (platform === 'image') {
-        codeArea.style.display = 'none';
-        previewArea.style.display = 'none';
-        imageArea.style.display = 'block';
-        primaryBtn.innerText = "Download Image";
-        copyBtn.style.display = 'none';
-        updatePreview();
-    } else if (platform === 'ply') {
-        codeArea.style.display = 'none';
-        previewArea.style.display = 'none';
-        imageArea.style.display = 'none';
-        primaryBtn.innerText = "Download 3D PLY";
-        copyBtn.style.display = 'none';
-        document.getElementById('ply-options').style.display = 'block';
-        updatePreview();
-    } else if (platform === 'glb' || platform === 'obj') {
-        codeArea.style.display = 'none';
-        previewArea.style.display = 'none';
-        imageArea.style.display = 'none';
-        document.getElementById('ply-options').style.display = 'none';
-        primaryBtn.innerText = platform === 'glb' ? "Download GLB" : "Download OBJ";
-        copyBtn.style.display = 'none';
-        updatePreview();
-    } else {
-        document.getElementById('ply-options').style.display = 'none';
-        codeArea.style.display = 'block';
-        previewArea.style.display = 'block';
-        imageArea.style.display = 'none';
-        primaryBtn.innerText = "Download Code";
-        copyBtn.style.display = 'inline-block';
-        updatePreview();
-    }
+    // The aspect / resolution block is shared by the image and video exporters;
+    // only the image exporter has a file-format row.
+    const isImage = platform === 'image';
+    const isVideo = platform === 'video';
+    const isCode = ['vanilla', 'react', 'three'].includes(platform);
+
+    codeArea.style.display = isCode ? 'block' : 'none';
+    previewArea.style.display = isCode ? 'block' : 'none';
+    copyBtn.style.display = isCode ? 'inline-block' : 'none';
+    imageArea.style.display = (isImage || isVideo) ? 'block' : 'none';
+    videoArea.style.display = isVideo ? 'block' : 'none';
+    formatRow.style.display = isImage ? 'flex' : 'none';
+    document.getElementById('ply-options').style.display = platform === 'ply' ? 'block' : 'none';
+
+    if (isVideo) setupVideoUI();
+
+    if (isImage) primaryBtn.innerText = "Download Image";
+    else if (isVideo) primaryBtn.innerText = "Record MP4";
+    else if (platform === 'ply') primaryBtn.innerText = "Download 3D PLY";
+    else if (platform === 'glb') primaryBtn.innerText = "Download GLB";
+    else if (platform === 'obj') primaryBtn.innerText = "Download OBJ";
+    else primaryBtn.innerText = "Download Code";
+
+    updatePreview();
 };
+
+// Reflect codec support + whether the current scene has an audio source to capture.
+function setupVideoUI() {
+    const audioRow = document.getElementById('row-video-audio');
+    const note = document.getElementById('video-codec-note');
+    const hasVideoSource = !!(window.STATE && window.STATE.mode === 'video' && window.STATE.vidSource);
+
+    audioRow.style.display = hasVideoSource ? 'flex' : 'none';
+
+    const base = "Records the live canvas exactly as it looks on screen &mdash; keep the simulation running while it captures.";
+    note.innerHTML = window.isMp4RecordingSupported()
+        ? base
+        : base + "<br><span style='color:#e0a030;'>This browser can't encode MP4, so the clip will be saved as .webm instead.</span>";
+}
 
 window.setExportAspect = (aspect) => {
     document.getElementById('exportAspect').value = aspect;
@@ -774,6 +784,10 @@ window.exportCode = () => {
     const platform = document.getElementById('exportPlatform').value;
     if (platform === 'image') {
         window.exportImage();
+        return;
+    }
+    if (platform === 'video') {
+        window.exportVideo();
         return;
     }
     if (platform === 'ply') {
@@ -834,6 +848,39 @@ window.exportCode = () => {
     URL.revokeObjectURL(url);
 };
 
+// --- SHARED DIMENSIONS (Image + Video) ---
+// Reads the aspect / resolution controls and returns the pixel size to render at.
+// "resVal" is the height basis for landscape & square, the width basis for portrait,
+// so a "1080p" portrait clip comes out 1080x1920 rather than 607x1080.
+function getExportDimensions() {
+    const aspectString = document.getElementById('exportAspect').value;
+    const resVal = parseInt(document.getElementById('exportResolution').value);
+
+    if (aspectString === 'custom') {
+        return {
+            w: parseInt(document.getElementById('customWidth').value) || 1920,
+            h: parseInt(document.getElementById('customHeight').value) || 1080
+        };
+    }
+
+    let widthMult, heightMult;
+    switch (aspectString) {
+        case '16:9': widthMult = 16; heightMult = 9; break;
+        case '9:16': widthMult = 9; heightMult = 16; break;
+        case '4:3': widthMult = 4; heightMult = 3; break;
+        case '3:4': widthMult = 3; heightMult = 4; break;
+        case '1:1': default: widthMult = 1; heightMult = 1; break;
+    }
+
+    if (widthMult > heightMult) {
+        return { w: Math.round(resVal * (widthMult / heightMult)), h: resVal };
+    }
+    if (widthMult === heightMult) {
+        return { w: resVal, h: resVal };
+    }
+    return { w: resVal, h: Math.round(resVal * (heightMult / widthMult)) };
+}
+
 window.exportImage = () => {
     if(!window.renderer || !window.camera || !window.scene || !window.composer) {
         console.error("Missing WebGL references to export image.");
@@ -848,43 +895,8 @@ window.exportImage = () => {
     // Wait a tiny bit to allow UI update before locking thread
     setTimeout(() => {
         try {
-            const aspectString = document.getElementById('exportAspect').value;
-            const resVal = parseInt(document.getElementById('exportResolution').value); // 1080, 1440, 2160
             const format = document.getElementById('exportFormat').value; // image/png, etc.
-
-            let targetW, targetH;
-
-            if (aspectString === 'custom') {
-                targetW = parseInt(document.getElementById('customWidth').value) || 1920;
-                targetH = parseInt(document.getElementById('customHeight').value) || 1080;
-            } else {
-                let widthMult, heightMult;
-                switch(aspectString) {
-                    case '16:9': widthMult = 16; heightMult = 9; break;
-                    case '9:16': widthMult = 9; heightMult = 16; break;
-                    case '4:3': widthMult = 4; heightMult = 3; break;
-                    case '3:4': widthMult = 3; heightMult = 4; break;
-                    case '1:1': default: widthMult = 1; heightMult = 1; break;
-                }
-
-                // Target height is our 'resVal' (e.g. 1080p -> 1080px). If we are in 9:16, width is smaller. Or if portrait, usually height is the larger dimension...
-                // Let's standardise: resVal is the larger dimension.
-                if (widthMult >= heightMult) {
-                    // Landscape or square: resVal is height. (Wait, 1080p 16:9 is 1920x1080 => height is 1080)
-                    // Let's keep resVal as "height basis" for landscape, "width basis" for portrait to keep pixel count sane.
-                    if(widthMult > heightMult) {
-                        targetH = resVal;
-                        targetW = Math.round(targetH * (widthMult / heightMult));
-                    } else {
-                        targetW = resVal;
-                        targetH = resVal;
-                    }
-                } else {
-                    // Portrait (e.g. 9:16). A 1080p port is usually 1080x1920. So width is resVal, height is larger.
-                    targetW = resVal;
-                    targetH = Math.round(targetW * (heightMult / widthMult));
-                }
-            }
+            const { w: targetW, h: targetH } = getExportDimensions();
 
             // Store active config
             const origW = window.innerWidth;
@@ -1224,4 +1236,231 @@ window.exportOBJ = () => {
             btn.disabled = false;
         }
     }, 50);
+};
+
+// --- VIDEO (MP4) EXPORT ---
+// Records the live WebGL canvas with MediaRecorder. MP4/H.264 is preferred; a browser
+// that cannot mux MP4 (e.g. older Firefox) falls back to WebM and the file is named honestly.
+const MP4_MIME_TYPES = [
+    'video/mp4;codecs=avc1.640029,mp4a.40.2',
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1.640029',
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4;codecs=avc1',
+    'video/mp4'
+];
+const WEBM_MIME_TYPES = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9',
+    'video/webm'
+];
+
+function pickRecorderMime(withAudio) {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return null;
+
+    const hasAudioCodec = (mime) => /mp4a|opus/.test(mime);
+    const candidates = MP4_MIME_TYPES.concat(WEBM_MIME_TYPES)
+        .filter(mime => withAudio ? true : !hasAudioCodec(mime));
+
+    return candidates.find(mime => MediaRecorder.isTypeSupported(mime)) || null;
+}
+
+window.isMp4RecordingSupported = () => {
+    const mime = pickRecorderMime(false);
+    return !!mime && mime.indexOf('video/mp4') === 0;
+};
+
+function getVideoFilenameBase() {
+    let name = "particle_simulation";
+    const label = (id) => ((document.getElementById(id) || {}).innerText || "");
+
+    if (window.STATE && window.STATE.mode) {
+        if (window.STATE.mode === 'image' && window.STATE.imgSource) {
+            name = label('imgName').split('.')[0] || "image_formation";
+        } else if (window.STATE.mode === 'video' && window.STATE.vidSource) {
+            name = label('vidName').split('.')[0] || "video_formation";
+        } else if (window.STATE.mode === 'model') {
+            name = label('modelName').split('.')[0] || "model_formation";
+        } else if (window.STATE.mode === 'blueprint') {
+            name = label('blueprintName').split('.')[0] || "blueprint_formation";
+        } else if (window.STATE.mode === 'draw') {
+            name = "custom_drawing";
+        } else if (window.STATE.mode === 'text') {
+            name = ((document.getElementById('textInput') || {}).value || "text").substring(0, 10) + "_formation";
+        } else if (window.STATE.mode === 'custom' && window.STATE.customName) {
+            name = window.STATE.customName;
+        } else {
+            name = window.STATE.mode;
+        }
+    }
+
+    return name.replace(/[^a-z0-9_]/gi, '_').toLowerCase() || "particle_simulation";
+}
+
+// Set while a recording is in flight, so the primary button doubles as "Stop & Save".
+let activeRecording = null;
+
+window.stopVideoExport = () => {
+    if (activeRecording && activeRecording.state === 'recording') activeRecording.stop();
+};
+
+window.exportVideo = () => {
+    const btn = document.getElementById('btn-primary-export');
+
+    if (activeRecording) { window.stopVideoExport(); return; }
+
+    if (!window.renderer || !window.camera || !window.composer) {
+        console.error("Missing WebGL references to record video.");
+        return;
+    }
+
+    const canvas = window.renderer.domElement;
+    if (!canvas.captureStream || typeof MediaRecorder === 'undefined') {
+        alert("This browser cannot record the canvas (MediaRecorder / captureStream unavailable). Try Chrome, Edge or Safari.");
+        return;
+    }
+
+    const duration = Math.min(120, Math.max(1, parseInt(document.getElementById('videoDuration').value) || 10));
+    const fps = parseInt(document.getElementById('videoFps').value) || 30;
+    const bitrate = (parseInt(document.getElementById('videoBitrate').value) || 16) * 1000000;
+
+    // H.264 needs even dimensions.
+    const dims = getExportDimensions();
+    const targetW = Math.max(2, dims.w - (dims.w % 2));
+    const targetH = Math.max(2, dims.h - (dims.h % 2));
+
+    const progress = document.getElementById('video-progress');
+    const fill = document.getElementById('video-progress-fill');
+    const status = document.getElementById('video-progress-text');
+    const origText = "Record MP4";
+
+    // Render at export size for the duration of the capture. updateStyle=false leaves the
+    // on-screen element alone, so only the backing store (what captureStream reads) changes.
+    const origSize = window.renderer.getSize(new THREE.Vector2());
+    const origRatio = window.renderer.getPixelRatio();
+    const origAspect = window.camera.aspect;
+
+    const restore = () => {
+        window.renderer.setPixelRatio(origRatio);
+        window.renderer.setSize(origSize.x, origSize.y, false);
+        window.composer.setSize(origSize.x, origSize.y);
+        window.camera.aspect = origAspect;
+        window.camera.updateProjectionMatrix();
+        window.EXPORT_RECORDING = false;
+    };
+
+    window.EXPORT_RECORDING = true; // main.js skips its resize handler while this is set
+    window.renderer.setPixelRatio(1);
+    window.renderer.setSize(targetW, targetH, false);
+    window.composer.setSize(targetW, targetH);
+    window.camera.aspect = targetW / targetH;
+    window.camera.updateProjectionMatrix();
+
+    let stream;
+    try {
+        stream = canvas.captureStream(fps);
+    } catch (e) {
+        console.error("Canvas capture failed:", e);
+        restore();
+        alert("Could not capture the canvas for recording.");
+        return;
+    }
+
+    // Carry the uploaded clip's audio when the swarm is being driven by a video.
+    const audioBox = document.getElementById('videoAudio');
+    const vid = document.getElementById('video-proc');
+    let audioAdded = false;
+    if (audioBox && audioBox.checked && window.STATE && window.STATE.mode === 'video' && vid && vid.captureStream) {
+        try {
+            vid.captureStream().getAudioTracks().forEach(track => {
+                stream.addTrack(track);
+                audioAdded = true;
+            });
+        } catch (e) {
+            console.warn("Could not capture video audio:", e);
+        }
+    }
+
+    const mime = pickRecorderMime(audioAdded);
+    let recorder = null;
+    if (mime) {
+        try {
+            recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate });
+        } catch (e) {
+            console.error("MediaRecorder init failed:", e);
+        }
+    }
+    if (!recorder) {
+        restore();
+        stream.getVideoTracks().forEach(t => t.stop());
+        alert("This browser has no supported video recording codec.");
+        return;
+    }
+
+    const chunks = [];
+    const startedAt = performance.now();
+    let timer = null;
+
+    const cleanup = () => {
+        if (timer) clearInterval(timer);
+        activeRecording = null;
+        restore();
+        stream.getVideoTracks().forEach(t => t.stop()); // canvas track only — leave the <video> element's audio running
+        progress.style.display = 'none';
+        fill.style.width = '0%';
+        btn.disabled = false;
+    };
+
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+    recorder.onstop = () => {
+        cleanup();
+
+        const isMp4 = mime.indexOf('video/mp4') === 0;
+        const blob = new Blob(chunks, { type: mime.split(';')[0] });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = getVideoFilenameBase() + "_" + targetW + "x" + targetH + (isMp4 ? ".mp4" : ".webm");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        btn.innerText = isMp4 ? "Saved!" : "Saved as WebM";
+        setTimeout(() => { btn.innerText = origText; }, 2500);
+    };
+
+    recorder.onerror = (e) => {
+        console.error("Recorder error:", e);
+        cleanup();
+        btn.innerText = "Record Error";
+        setTimeout(() => { btn.innerText = origText; }, 2500);
+    };
+
+    activeRecording = recorder;
+    recorder.start(200);
+
+    progress.style.display = 'block';
+    fill.style.width = '0%';
+    status.innerText = `Recording ${targetW}x${targetH} @ ${fps}fps`;
+    btn.innerText = `Stop & Save (${duration.toFixed(1)}s)`;
+
+    timer = setInterval(() => {
+        if (!activeRecording) return;
+        const elapsed = (performance.now() - startedAt) / 1000;
+        fill.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+
+        if (elapsed >= duration) {
+            status.innerText = "Encoding...";
+            btn.innerText = "Encoding...";
+            btn.disabled = true;
+            clearInterval(timer);
+            timer = null;
+            if (recorder.state === 'recording') recorder.stop();
+            return;
+        }
+        btn.innerText = `Stop & Save (${(duration - elapsed).toFixed(1)}s)`;
+    }, 100);
 };

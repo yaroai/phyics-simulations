@@ -2356,6 +2356,7 @@ function animate() {
 }
 
 window.addEventListener('resize', () => {
+    if (window.EXPORT_RECORDING) return; // canvas is locked to the MP4 export size mid-recording
     camera.aspect = viewW() / viewH();
     camera.updateProjectionMatrix();
     renderer.setSize(viewW(), viewH());

@@ -123,3 +123,43 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* --- VIDEO (MP4) RECORDING --- */
+.rec-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rec-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+}
+
+.rec-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #ccc;
+    font-family: monospace;
+}
+
+.rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff3b3b;
+    flex-shrink: 0;
+    animation: rec-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}

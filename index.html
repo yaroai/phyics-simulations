@@ -434,6 +434,21 @@
                             </svg>
                             <span>Wallpapers</span>
                         </button>
+                        <!-- VIDEO PLATFORM BUTTON -->
+                        <button class="platform-btn" onclick="setExportPlatform('video')" id="btn-platform-video"
+                            title="Record the live simulation as an MP4 video">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                                <line x1="7" y1="2" x2="7" y2="22"></line>
+                                <line x1="17" y1="2" x2="17" y2="22"></line>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <line x1="2" y1="7" x2="7" y2="7"></line>
+                                <line x1="2" y1="17" x2="7" y2="17"></line>
+                                <line x1="17" y1="17" x2="22" y2="17"></line>
+                                <line x1="17" y1="7" x2="22" y2="7"></line>
+                            </svg>
+                            <span>MP4 Video</span>
+                        </button>
                         <!-- PLY PLATFORM BUTTON -->
                         <button class="platform-btn" onclick="setExportPlatform('ply')" id="btn-platform-ply"
                             title="Export PLY Point Cloud">
@@ -555,13 +570,57 @@
                             <option value="2160">4K (UHD)</option>
                         </select>
                     </div>
-                    <div class="row">
+                    <div class="row" id="row-format">
                         <span>Format</span>
                         <select id="exportFormat">
                             <option value="image/png">PNG</option>
                             <option value="image/jpeg">JPEG</option>
                             <option value="image/webp">WEBP</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- VIDEO SETTINGS (Visible for video platform) -->
+                <div id="video-settings-area" class="section" style="display:none; padding:0; margin:0;">
+                    <div class="row">
+                        <span>Duration</span>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="number" id="videoDuration" value="10" min="1" max="120" step="1"
+                                style="width:60px; background:rgba(255,255,255,0.05); border:1px solid #333; border-radius:4px; color:white; font-family:monospace; text-align:right; padding:4px 6px;">
+                            <span style="font-size:11px; color:#777;">sec</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <span>Frame Rate</span>
+                        <select id="videoFps">
+                            <option value="30">30 FPS</option>
+                            <option value="60">60 FPS</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <span>Quality</span>
+                        <select id="videoBitrate">
+                            <option value="8">Standard (8 Mbps)</option>
+                            <option value="16" selected>High (16 Mbps)</option>
+                            <option value="25">Ultra (25 Mbps)</option>
+                        </select>
+                    </div>
+                    <div class="row" id="row-video-audio" style="display:none;">
+                        <span>Include Video Audio</span>
+                        <input type="checkbox" id="videoAudio" checked style="accent-color:var(--accent);">
+                    </div>
+
+                    <!-- RECORDING PROGRESS -->
+                    <div id="video-progress" style="display:none; margin-top:5px;">
+                        <div class="rec-bar"><div class="rec-bar-fill" id="video-progress-fill"></div></div>
+                        <div id="video-progress-label" class="rec-label">
+                            <span class="rec-dot"></span><span id="video-progress-text">Recording...</span>
+                        </div>
+                    </div>
+
+                    <div id="video-codec-note"
+                        style="font-size:11px; color:#777; line-height:1.5; margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px;">
+                        Records the live canvas exactly as it looks on screen &mdash; keep the simulation running while it captures.
                     </div>
                 </div>
             </div>
