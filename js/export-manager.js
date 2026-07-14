@@ -1239,8 +1239,44 @@ window.exportOBJ = () => {
 };
 
 // --- VIDEO (MP4) EXPORT ---
-// Records the live WebGL canvas with MediaRecorder. MP4/H.264 is preferred; a browser
-// that cannot mux MP4 (e.g. older Firefox) falls back to WebM and the file is named honestly.
+// Records the live WebGL canvas. The primary path encodes frames with WebCodecs
+// (VideoEncoder) and muxes them with mp4-muxer into a *flat, seekable* MP4 — a
+// proper moov with a real duration, so players can scrub it. MediaRecorder is only
+// a fallback (its MP4 is fragmented and streams-only / non-seekable), used when
+// WebCodecs isn't available; there we honestly name the file .webm if MP4 muxing
+// isn't offered by the browser.
+
+const MP4_MUXER_URL = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/build/mp4-muxer.mjs';
+let _mp4MuxerPromise = null;
+function loadMp4Muxer() {
+    if (!_mp4MuxerPromise) _mp4MuxerPromise = import(MP4_MUXER_URL);
+    return _mp4MuxerPromise;
+}
+
+// WebCodecs + a per-frame source (MediaStreamTrackProcessor) + canvas capture.
+function webCodecsRecordingAvailable() {
+    return typeof VideoEncoder !== 'undefined'
+        && typeof MediaStreamTrackProcessor !== 'undefined'
+        && typeof HTMLCanvasElement !== 'undefined'
+        && !!HTMLCanvasElement.prototype.captureStream;
+}
+
+// H.264 profile/level strings, highest level first. Level must cover the frame size
+// (5.2 handles up to 4K); we probe downward so smaller clips still pick a supported one.
+const AVC_CODECS = ['avc1.640034', 'avc1.64002A', 'avc1.640028', 'avc1.42E028', 'avc1.42001F'];
+
+async function pickAvcCodec(width, height, fps, bitrate) {
+    if (typeof VideoEncoder === 'undefined' || !VideoEncoder.isConfigSupported) return null;
+    for (const codec of AVC_CODECS) {
+        try {
+            const support = await VideoEncoder.isConfigSupported({ codec, width, height, bitrate, framerate: fps });
+            if (support && support.supported) return codec;
+        } catch (e) { /* try next */ }
+    }
+    return null;
+}
+
+// --- Fallback (MediaRecorder) codec probing ---
 const MP4_MIME_TYPES = [
     'video/mp4;codecs=avc1.640029,mp4a.40.2',
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
@@ -1267,6 +1303,8 @@ function pickRecorderMime(withAudio) {
 }
 
 window.isMp4RecordingSupported = () => {
+    // The WebCodecs path always emits real MP4; otherwise it depends on MediaRecorder.
+    if (webCodecsRecordingAvailable()) return true;
     const mime = pickRecorderMime(false);
     return !!mime && mime.indexOf('video/mp4') === 0;
 };
@@ -1299,16 +1337,65 @@ function getVideoFilenameBase() {
 }
 
 // Set while a recording is in flight, so the primary button doubles as "Stop & Save".
+// Holds a control object exposing stop(); both record paths install one.
 let activeRecording = null;
+// True during the brief async prep of the WebCodecs path (codec probe + first-time
+// mp4-muxer download), before a recording is actually running.
+let preparingVideo = false;
+const VIDEO_ORIG_TEXT = "Record MP4";
 
 window.stopVideoExport = () => {
-    if (activeRecording && activeRecording.state === 'recording') activeRecording.stop();
+    if (activeRecording) activeRecording.stop();
 };
 
-window.exportVideo = () => {
-    const btn = document.getElementById('btn-primary-export');
+// Resize the renderer to the export size for the capture and hand back a restore fn.
+// updateStyle=false keeps the on-screen element the same size — only the backing store
+// (what capture reads) changes. main.js skips its resize handler while EXPORT_RECORDING.
+function beginRecordingRender(targetW, targetH) {
+    const origSize = window.renderer.getSize(new THREE.Vector2());
+    const origRatio = window.renderer.getPixelRatio();
+    const origAspect = window.camera.aspect;
 
+    window.EXPORT_RECORDING = true;
+    window.renderer.setPixelRatio(1);
+    window.renderer.setSize(targetW, targetH, false);
+    window.composer.setSize(targetW, targetH);
+    window.camera.aspect = targetW / targetH;
+    window.camera.updateProjectionMatrix();
+
+    return () => {
+        window.renderer.setPixelRatio(origRatio);
+        window.renderer.setSize(origSize.x, origSize.y, false);
+        window.composer.setSize(origSize.x, origSize.y);
+        window.camera.aspect = origAspect;
+        window.camera.updateProjectionMatrix();
+        window.EXPORT_RECORDING = false;
+    };
+}
+
+function downloadRecording(blob, ext, targetW, targetH) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = getVideoFilenameBase() + "_" + targetW + "x" + targetH + "." + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function videoProgressEls() {
+    return {
+        btn: document.getElementById('btn-primary-export'),
+        progress: document.getElementById('video-progress'),
+        fill: document.getElementById('video-progress-fill'),
+        status: document.getElementById('video-progress-text')
+    };
+}
+
+window.exportVideo = () => {
     if (activeRecording) { window.stopVideoExport(); return; }
+    if (preparingVideo) return; // ignore extra clicks during the short prep window
 
     if (!window.renderer || !window.camera || !window.composer) {
         console.error("Missing WebGL references to record video.");
@@ -1316,11 +1403,6 @@ window.exportVideo = () => {
     }
 
     const canvas = window.renderer.domElement;
-    if (!canvas.captureStream || typeof MediaRecorder === 'undefined') {
-        alert("This browser cannot record the canvas (MediaRecorder / captureStream unavailable). Try Chrome, Edge or Safari.");
-        return;
-    }
-
     const duration = Math.min(120, Math.max(1, parseInt(document.getElementById('videoDuration').value) || 10));
     const fps = parseInt(document.getElementById('videoFps').value) || 30;
     const bitrate = (parseInt(document.getElementById('videoBitrate').value) || 16) * 1000000;
@@ -1330,32 +1412,218 @@ window.exportVideo = () => {
     const targetW = Math.max(2, dims.w - (dims.w % 2));
     const targetH = Math.max(2, dims.h - (dims.h % 2));
 
-    const progress = document.getElementById('video-progress');
-    const fill = document.getElementById('video-progress-fill');
-    const status = document.getElementById('video-progress-text');
-    const origText = "Record MP4";
+    const opts = { canvas, duration, fps, bitrate, targetW, targetH };
 
-    // Render at export size for the duration of the capture. updateStyle=false leaves the
-    // on-screen element alone, so only the backing store (what captureStream reads) changes.
-    const origSize = window.renderer.getSize(new THREE.Vector2());
-    const origRatio = window.renderer.getPixelRatio();
-    const origAspect = window.camera.aspect;
+    if (webCodecsRecordingAvailable()) {
+        preparingVideo = true;
+        const btn = document.getElementById('btn-primary-export');
+        btn.innerText = "Preparing…";
+        recordWithWebCodecs(opts).catch((e) => {
+            console.error("WebCodecs recording failed, falling back to MediaRecorder:", e);
+            recordWithMediaRecorder(opts);
+        }).finally(() => { preparingVideo = false; });
+    } else {
+        recordWithMediaRecorder(opts);
+    }
+};
 
-    const restore = () => {
-        window.renderer.setPixelRatio(origRatio);
-        window.renderer.setSize(origSize.x, origSize.y, false);
-        window.composer.setSize(origSize.x, origSize.y);
-        window.camera.aspect = origAspect;
-        window.camera.updateProjectionMatrix();
-        window.EXPORT_RECORDING = false;
+// --- Primary path: WebCodecs VideoEncoder -> mp4-muxer (flat, seekable MP4) ---
+async function recordWithWebCodecs({ canvas, duration, fps, bitrate, targetW, targetH }) {
+    const { btn, progress, fill, status } = videoProgressEls();
+
+    const codec = await pickAvcCodec(targetW, targetH, fps, bitrate);
+    if (!codec) { recordWithMediaRecorder({ canvas, duration, fps, bitrate, targetW, targetH }); return; }
+
+    let Mp4Muxer;
+    try {
+        Mp4Muxer = await loadMp4Muxer();
+    } catch (e) {
+        console.warn("mp4-muxer failed to load; using MediaRecorder fallback:", e);
+        recordWithMediaRecorder({ canvas, duration, fps, bitrate, targetW, targetH });
+        return;
+    }
+
+    const restore = beginRecordingRender(targetW, targetH);
+
+    let stream;
+    try {
+        stream = canvas.captureStream(fps);
+    } catch (e) {
+        console.error("Canvas capture failed:", e);
+        restore();
+        recordWithMediaRecorder({ canvas, duration, fps, bitrate, targetW, targetH });
+        return;
+    }
+    const videoTrack = stream.getVideoTracks()[0];
+
+    // Optional: carry the uploaded clip's audio when the swarm is driven by a video.
+    let audioSetup = null;
+    const audioBox = document.getElementById('videoAudio');
+    const vid = document.getElementById('video-proc');
+    if (audioBox && audioBox.checked && window.STATE && window.STATE.mode === 'video'
+        && vid && vid.captureStream && typeof AudioEncoder !== 'undefined') {
+        try {
+            const aTrack = vid.captureStream().getAudioTracks()[0];
+            if (aTrack) {
+                const s = aTrack.getSettings ? aTrack.getSettings() : {};
+                audioSetup = { track: aTrack, numberOfChannels: s.channelCount || 2, sampleRate: s.sampleRate || 48000 };
+            }
+        } catch (e) { console.warn("Could not capture video audio:", e); }
+    }
+
+    let muxer;          // referenced by encoder outputs; assigned just below
+    let encodeError = null;
+
+    const videoEncoder = new VideoEncoder({
+        output: (chunk, meta) => { try { muxer.addVideoChunk(chunk, meta); } catch (e) { encodeError = e; } },
+        error: (e) => { encodeError = e; }
+    });
+    videoEncoder.configure({
+        codec, width: targetW, height: targetH, bitrate, framerate: fps,
+        avc: { format: 'avc' }, latencyMode: 'quality'
+    });
+
+    // Configure the audio encoder before building the muxer, so a failure here means
+    // we simply mux video-only rather than promising an audio track we can't deliver.
+    let audioEncoder = null;
+    if (audioSetup) {
+        try {
+            audioEncoder = new AudioEncoder({
+                output: (chunk, meta) => { try { muxer.addAudioChunk(chunk, meta); } catch (e) { /* ignore */ } },
+                error: (e) => { console.warn("Audio encoder error:", e); }
+            });
+            audioEncoder.configure({
+                codec: 'mp4a.40.2', numberOfChannels: audioSetup.numberOfChannels,
+                sampleRate: audioSetup.sampleRate, bitrate: 128000
+            });
+        } catch (e) {
+            console.warn("Audio encoder unavailable; recording video only:", e);
+            audioEncoder = null;
+            audioSetup = null;
+        }
+    }
+
+    const muxerTarget = new Mp4Muxer.ArrayBufferTarget();
+    muxer = new Mp4Muxer.Muxer({
+        target: muxerTarget,
+        fastStart: 'in-memory',        // moov at the front -> instantly seekable
+        firstTimestampBehavior: 'offset',
+        video: { codec: 'avc', width: targetW, height: targetH, frameRate: fps },
+        audio: audioSetup ? { codec: 'aac', numberOfChannels: audioSetup.numberOfChannels, sampleRate: audioSetup.sampleRate } : undefined
+    });
+
+    let stopped = false;
+    let finished = false;
+    let progressTimer = null;
+    const startedAt = performance.now();
+
+    const videoReader = new MediaStreamTrackProcessor({ track: videoTrack }).readable.getReader();
+    let audioReader = null;
+
+    const elapsedSec = () => (performance.now() - startedAt) / 1000;
+
+    const pumpVideo = async () => {
+        let frameIndex = 0;
+        const keyEvery = Math.max(1, fps * 2);
+        while (true) {
+            let res;
+            try { res = await videoReader.read(); } catch (e) { break; }
+            const frame = res.value;
+            if (res.done || !frame) break;
+            if (stopped || elapsedSec() >= duration || encodeError) { frame.close(); break; }
+            try {
+                videoEncoder.encode(frame, { keyFrame: frameIndex % keyEvery === 0 });
+            } catch (e) { encodeError = e; frame.close(); break; }
+            frame.close();
+            frameIndex++;
+            if (videoEncoder.encodeQueueSize > 30) await new Promise(r => setTimeout(r)); // backpressure
+        }
     };
 
-    window.EXPORT_RECORDING = true; // main.js skips its resize handler while this is set
-    window.renderer.setPixelRatio(1);
-    window.renderer.setSize(targetW, targetH, false);
-    window.composer.setSize(targetW, targetH);
-    window.camera.aspect = targetW / targetH;
-    window.camera.updateProjectionMatrix();
+    const pumpAudio = async () => {
+        if (!audioEncoder || !audioSetup) return;
+        audioReader = new MediaStreamTrackProcessor({ track: audioSetup.track }).readable.getReader();
+        while (true) {
+            let res;
+            try { res = await audioReader.read(); } catch (e) { break; }
+            const data = res.value;
+            if (res.done || !data) break;
+            if (stopped || elapsedSec() >= duration || encodeError) { data.close(); break; }
+            try { audioEncoder.encode(data); } catch (e) { /* skip bad sample */ }
+            data.close();
+        }
+    };
+
+    const finalize = async () => {
+        if (finished) return;
+        finished = true;
+        activeRecording = null;
+        if (progressTimer) clearInterval(progressTimer);
+
+        try { await videoReader.cancel(); } catch (e) {}
+        try { if (audioReader) await audioReader.cancel(); } catch (e) {}
+        videoTrack.stop(); // canvas track only — leave the <video> element's own audio playing
+
+        status.innerText = "Encoding...";
+        btn.innerText = "Encoding...";
+        btn.disabled = true;
+
+        try { await videoEncoder.flush(); } catch (e) { console.warn("Video flush error:", e); }
+        try { if (audioEncoder) await audioEncoder.flush(); } catch (e) { console.warn("Audio flush error:", e); }
+        try { videoEncoder.close(); } catch (e) {}
+        try { if (audioEncoder) audioEncoder.close(); } catch (e) {}
+
+        restore();
+        progress.style.display = 'none';
+        fill.style.width = '0%';
+        btn.disabled = false;
+
+        if (encodeError) {
+            console.error("Video encode error:", encodeError);
+            btn.innerText = "Record Error";
+            setTimeout(() => { btn.innerText = VIDEO_ORIG_TEXT; }, 2500);
+            return;
+        }
+
+        muxer.finalize();
+        const blob = new Blob([muxerTarget.buffer], { type: 'video/mp4' });
+        downloadRecording(blob, 'mp4', targetW, targetH);
+        btn.innerText = "Saved!";
+        setTimeout(() => { btn.innerText = VIDEO_ORIG_TEXT; }, 2500);
+    };
+
+    activeRecording = { stop: () => { stopped = true; } };
+
+    progress.style.display = 'block';
+    fill.style.width = '0%';
+    status.innerText = `Recording ${targetW}x${targetH} @ ${fps}fps`;
+    btn.innerText = `Stop & Save (${duration.toFixed(1)}s)`;
+
+    progressTimer = setInterval(() => {
+        if (finished) return;
+        const elapsed = elapsedSec();
+        fill.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
+        const left = Math.max(0, duration - elapsed);
+        btn.innerText = left > 0 ? `Stop & Save (${left.toFixed(1)}s)` : "Encoding...";
+    }, 100);
+
+    Promise.all([pumpVideo(), pumpAudio()]).then(finalize).catch((e) => {
+        console.error("Recording pump error:", e);
+        finalize();
+    });
+}
+
+// --- Fallback path: MediaRecorder. Its MP4 is fragmented (not seekable); used only
+// where WebCodecs is unavailable. Names the file .webm honestly when MP4 isn't offered.
+function recordWithMediaRecorder({ canvas, duration, fps, bitrate, targetW, targetH }) {
+    const { btn, progress, fill, status } = videoProgressEls();
+
+    if (!canvas.captureStream || typeof MediaRecorder === 'undefined') {
+        alert("This browser cannot record the canvas (MediaRecorder / captureStream unavailable). Try Chrome, Edge or Safari.");
+        return;
+    }
+
+    const restore = beginRecordingRender(targetW, targetH);
 
     let stream;
     try {
@@ -1373,23 +1641,15 @@ window.exportVideo = () => {
     let audioAdded = false;
     if (audioBox && audioBox.checked && window.STATE && window.STATE.mode === 'video' && vid && vid.captureStream) {
         try {
-            vid.captureStream().getAudioTracks().forEach(track => {
-                stream.addTrack(track);
-                audioAdded = true;
-            });
-        } catch (e) {
-            console.warn("Could not capture video audio:", e);
-        }
+            vid.captureStream().getAudioTracks().forEach(track => { stream.addTrack(track); audioAdded = true; });
+        } catch (e) { console.warn("Could not capture video audio:", e); }
     }
 
     const mime = pickRecorderMime(audioAdded);
     let recorder = null;
     if (mime) {
-        try {
-            recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate });
-        } catch (e) {
-            console.error("MediaRecorder init failed:", e);
-        }
+        try { recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrate }); }
+        catch (e) { console.error("MediaRecorder init failed:", e); }
     }
     if (!recorder) {
         restore();
@@ -1416,30 +1676,21 @@ window.exportVideo = () => {
 
     recorder.onstop = () => {
         cleanup();
-
         const isMp4 = mime.indexOf('video/mp4') === 0;
         const blob = new Blob(chunks, { type: mime.split(';')[0] });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = getVideoFilenameBase() + "_" + targetW + "x" + targetH + (isMp4 ? ".mp4" : ".webm");
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-
+        downloadRecording(blob, isMp4 ? 'mp4' : 'webm', targetW, targetH);
         btn.innerText = isMp4 ? "Saved!" : "Saved as WebM";
-        setTimeout(() => { btn.innerText = origText; }, 2500);
+        setTimeout(() => { btn.innerText = VIDEO_ORIG_TEXT; }, 2500);
     };
 
     recorder.onerror = (e) => {
         console.error("Recorder error:", e);
         cleanup();
         btn.innerText = "Record Error";
-        setTimeout(() => { btn.innerText = origText; }, 2500);
+        setTimeout(() => { btn.innerText = VIDEO_ORIG_TEXT; }, 2500);
     };
 
-    activeRecording = recorder;
+    activeRecording = { stop: () => { if (recorder.state === 'recording') recorder.stop(); } };
     recorder.start(200);
 
     progress.style.display = 'block';
@@ -1451,7 +1702,6 @@ window.exportVideo = () => {
         if (!activeRecording) return;
         const elapsed = (performance.now() - startedAt) / 1000;
         fill.style.width = Math.min(100, (elapsed / duration) * 100) + '%';
-
         if (elapsed >= duration) {
             status.innerText = "Encoding...";
             btn.innerText = "Encoding...";
@@ -1463,4 +1713,4 @@ window.exportVideo = () => {
         }
         btn.innerText = `Stop & Save (${(duration - elapsed).toFixed(1)}s)`;
     }, 100);
-};
+}
